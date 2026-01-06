@@ -111,7 +111,7 @@ class FileFilter:
             prompt_pattern = pattern
             # This works well for files, but not well for sub dir of a pattern.
             # If pattern is blank, then assume its repo-root (& it is included)
-            if not pattern or file_name.match(pattern):
+            if not pattern or file_name.full_match(pattern):
                 break
 
             # Lastly, to support ignoring recursively with globs:
@@ -120,7 +120,7 @@ class FileFilter:
             file_parent = file_name.parent
             matched_parent = False
             while file_parent.parts:
-                if file_parent.match(pattern):
+                if file_parent.full_match(pattern):
                     matched_parent = True
                     break
                 file_parent = file_parent.parent
