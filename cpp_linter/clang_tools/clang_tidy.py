@@ -10,7 +10,9 @@ from ..loggers import logger
 from ..common_fs import FileObj
 from .patcher import PatchMixin, ReviewComments, Suggestion
 
-NOTE_HEADER = re.compile(r"^(.+):(\d+):(\d+):\s(\w+):(.*)\[([a-zA-Z\d\-\.]+)\]$")
+NOTE_HEADER = re.compile(
+    r"^(.+):(\d+):(\d+):\s(\w+):(.*)\[([a-zA-Z\d\-\.]+),?[^\]]*\]$"
+)
 FIXED_NOTE = re.compile(r"^.+:(\d+):\d+:\snote: FIX-IT applied suggested code changes$")
 
 
@@ -90,7 +92,10 @@ class TidyNotification:
             check_name_parts = self.diagnostic.split("-", maxsplit=2)
             assert len(check_name_parts) > 2, "diagnostic name malformed"
             return link + "clang-analyzer/{}.html)".format(check_name_parts[2])
-        return link + "{}/{}.html)".format(*self.diagnostic.split("-", maxsplit=1))
+        diag_split = self.diagnostic.split("-", maxsplit=1)
+        if len(diag_split) < 2 or not all(diag_split):
+            return self.diagnostic
+        return link + "{}/{}.html)".format(*diag_split)
 
     def __repr__(self) -> str:
         return (
@@ -159,7 +164,7 @@ class TidyAdvice(PatchMixin):
                     body += f"{note.line}:{note.cols}:** {note.severity}: "
                     body += f"[{note.diagnostic_link}]\n> {note.rationale}\n"
                     if note.fixit_lines:
-                        body += f'```{Path(file_obj.name).suffix.lstrip(".")}\n'
+                        body += f"```{Path(file_obj.name).suffix.lstrip('.')}\n"
                         for fixit_line in note.fixit_lines:
                             body += f"{fixit_line}\n"
                         body += "```\n"
@@ -246,7 +251,8 @@ def run_clang_tidy(
         extra_args = extra_args[0].split()
     for extra_arg in extra_args:
         arg = extra_arg.strip('"')
-        cmds.append(f"--extra-arg={arg}")
+        if arg:  # avoid adding empty arg values
+            cmds.append(f"--extra-arg={arg}")
     if tidy_review:
         # clang-tidy overwrites the file contents when applying fixes.
         # create a cache of original contents
@@ -287,16 +293,21 @@ def parse_tidy_output(
         note_match = re.match(NOTE_HEADER, line)
         fixed_match = re.match(FIXED_NOTE, line)
         if note_match is not None:
-            notification = TidyNotification(
-                cast(
-                    Tuple[str, Union[int, str], Union[int, str], str, str, str],
-                    note_match.groups(),
-                ),
-                database,
-            )
-            tidy_notes.append(notification)
-            # begin capturing subsequent lines as part of notification details
-            found_fix = False
+            # Sometimes clang-tidy uses square brackets to enclose additional context
+            # about the diagnostic rationale. For example: '[with auto = typename ...]'
+            # We need to ignore such cases as they do not start a diagnostic report.
+            diagnostic_name = note_match.group(6)
+            if " " not in diagnostic_name and "-" in diagnostic_name:
+                notification = TidyNotification(
+                    cast(
+                        Tuple[str, Union[int, str], Union[int, str], str, str, str],
+                        note_match.groups(),
+                    ),
+                    database,
+                )
+                tidy_notes.append(notification)
+                # begin capturing subsequent lines as part of notification details
+                found_fix = False
         elif fixed_match is not None and notification is not None:
             notification.applied_fixes.add(int(fixed_match.group(1)))
             # suspend capturing subsequent lines as they are not needed

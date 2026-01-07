@@ -5,6 +5,7 @@ import pytest
 import requests_mock
 from cpp_linter import GithubApiClient, logger, FileFilter
 import cpp_linter.rest_api.github_api
+from cpp_linter._version import version
 
 
 TEST_PR = 27
@@ -15,6 +16,7 @@ TEST_ASSETS = Path(__file__).parent
 TEST_DIFF = (TEST_ASSETS / "patch.diff").read_text(encoding="utf-8")
 
 
+@pytest.mark.no_clang
 @pytest.mark.parametrize(
     "event_name,paginated,fake_runner,lines_changed_only",
     [
@@ -117,6 +119,7 @@ def test_get_changed_files(
             request_headers={
                 "Authorization": "token 123456",
                 "Accept": "application/vnd.github.diff",
+                "User-Agent": f"cpp-linter/{version}",
             },
             text=TEST_DIFF if not paginated else "",
             status_code=200 if not paginated else 403,
@@ -134,6 +137,7 @@ def test_get_changed_files(
                     request_headers={
                         "Authorization": "token 123456",
                         "Accept": "application/vnd.github.raw+json",
+                        "User-Agent": f"cpp-linter/{version}",
                     },
                     headers={"link": f'<{mock_endpoint}?page=2>; rel="next"'}
                     if pg == 1

@@ -1,9 +1,0 @@
-name: Build Docs
-
-on: [push, workflow_dispatch]
-
-jobs:
-  build-docs:
-    uses: cpp-linter/.github/.github/workflows/sphinx.yml@main
-    with:
-      path-to-doc: docs/_build/html

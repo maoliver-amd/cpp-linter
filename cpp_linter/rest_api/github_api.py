@@ -29,7 +29,7 @@ from ..clang_tools import ClangVersions
 from ..cli import Args
 from ..loggers import logger, log_commander
 from ..git import parse_diff, get_diff
-from . import RestApiClient, USER_OUTREACH, COMMENT_MARKER, RateLimitHeaders
+from . import RestApiClient, USER_AGENT, USER_OUTREACH, COMMENT_MARKER, RateLimitHeaders
 
 RATE_LIMIT_HEADERS = RateLimitHeaders(
     reset="x-ratelimit-reset",
@@ -111,7 +111,10 @@ class GithubApiClient(RestApiClient):
         #: The HEAD commit's SHA
         self.sha = environ.get("GITHUB_SHA", "")
         #: A flag that describes if debug logs are enabled.
-        self.debug_enabled = environ.get("ACTIONS_STEP_DEBUG", "") == "true"
+        self.debug_enabled = (
+            environ.get("ACTIONS_STEP_DEBUG", "") == "true"
+            or environ.get("ACTIONS_RUNNER_DEBUG", "") == "true"
+        )
 
         #: The pull request number for the event (if applicable).
         self.pull_request = -1
@@ -257,6 +260,7 @@ class GithubApiClient(RestApiClient):
         gh_token = environ.get("GITHUB_TOKEN", "")
         if gh_token:
             headers["Authorization"] = f"token {gh_token}"
+        headers["User-Agent"] = USER_AGENT
         return headers
 
     def post_feedback(

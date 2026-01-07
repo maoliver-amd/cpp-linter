@@ -14,6 +14,7 @@ words:
   - consts
   - cppcoreguidelines
   - cstdio
+  - declval
   - docutils
   - endgroup
   - Fixit
@@ -30,6 +31,7 @@ words:
   - maxsplit
   - mktime
   - mypy
+  - posargs
   - posix
   - pybind
   - pygit
